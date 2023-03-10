@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <style type="text/css">
+        .file_drop_zone {
+            width: 100%;
+            height: 100vh;
+            border: 1px solid #000;
+        }
+    </style>
+    <script src='/dist/sql-wasm.js'></script>
+    <script>
+        const sqlPromise = initSqlJs({
+            locateFile: filename => `/dist/${filename}`
+        });
+        const dataPromise = fetch("/database.db").then(res => res.arrayBuffer());
+        let db;
+        Promise.all([sqlPromise, dataPromise])
+        .then(([SQL, buf]) => {
+            db = new SQL.Database(new Uint8Array(buf));
+            // const res = db.exec("SELECT * FROM test");
+            // console.log(res);
+            // console.log('SQLite ready!');
+        });
+      </script>
+</head>
+<body>
+    <button id="btn">test</button>
+    <div class="file_drop_zone"></div>
+    <script type="text/javascript">
+        const file_drop_zone = document.querySelector('.file_drop_zone');
+        file_drop_zone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+        });
+        file_drop_zone.addEventListener('dragenter', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+        });
+        file_drop_zone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const files = e.dataTransfer.files;
+            console.log(files);
+            let reader = new FileReader();
+            reader.onload = (e) => {
+                const test_promise = new Promise((resolve, reject) => {
+                    resolve(e.target.result);
+                }).then((array_buffer) => {
+                    // const bbase64String = btoa(String.fromCharCode.apply(null, new Uint8Array(array_buffer)));
+                    // db.run("INSERT INTO test (uuid, data) VALUES (?,?)", [files[0].name, base64String]);
+
+                    const blob = new Blob(array_buffer, {type: "application/octet-stream"});
+                    downloadBlob(blob, files[0].name);
+                })
+                // .then((res) => {
+                //     const results = db.exec("SELECT * FROM test");
+                //     console.log(results[0].values);
+                // });
+            }
+            reader.readAsArrayBuffer(files[0]);
+        });
+
+        const btn = document.querySelector('#btn');
+
+        // download to file from database when click button
+        btn.addEventListener("click", (event) => {
+            const results = db.exec("SELECT * FROM test");
+            // const byteArray = new Uint8Array(results[0].values[0][2].match(/.{2}/g).map(e => parseInt(e, 16)));
+            // const blob = new Blob([byteArray], {type: "application/octet-stream"});
+            const blob = new Blob([results[0].values[0][2]], {type: "image/png"});
+            downloadBlob(blob, results[0].values[0][1]);
+        });
+
+        // Download Any File from Blob - https://dev.to/nombrekeff/download-file-from-blob-21ho
+        function downloadBlob(blob, name = 'file.txt') {
+            // Convert your blob into a Blob URL (a special url that points to an object in the browser's memory)
+            const blobUrl = URL.createObjectURL(blob);
+
+            // Create a link element
+            const link = document.createElement("a");
+
+            // Set link's href to point to the Blob URL
+            link.href = blobUrl;
+            link.download = name;
+
+            // Append link to the body
+            document.body.appendChild(link);
+
+            // Dispatch click event on the link
+            // This is necessary as link.click() does not work on the latest firefox
+            link.dispatchEvent(
+                new MouseEvent('click', { 
+                bubbles: true, 
+                cancelable: true, 
+                view: window 
+                })
+            );
+
+            // Remove link from body
+            document.body.removeChild(link);
+        }
+    </script>
+</body>
+</html>
